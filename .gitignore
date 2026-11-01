@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# local secrets and test output
+.env
+.env.*
+!.env.example
+*.log
+test-output/

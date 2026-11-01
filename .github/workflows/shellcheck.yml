@@ -1,0 +1,19 @@
+name: shellcheck
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n
+        run: bash -n oece-x-blue.sh
+      - name: shellcheck
+        uses: ludeeus/action-shellcheck@master
+        env:
+          SC_OPTS: "-S warning"
+        with:
+          scandir: "."
+          severity: warning

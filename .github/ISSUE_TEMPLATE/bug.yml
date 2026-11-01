@@ -1,0 +1,28 @@
+name: Bug
+description: Something in oece-x-blue.sh failed or reported the wrong state.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: Do not paste hostnames, public IPs, tokens, or blue.env.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Version
+      description: Output of `bash oece-x-blue.sh --version`
+      placeholder: v2.0.0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Distro
+      options:
+        - Debian
+        - Ubuntu
+        - RHEL family
+        - Other
+    validations:
+      required: true
