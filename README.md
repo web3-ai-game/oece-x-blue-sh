@@ -28,6 +28,7 @@
   <img src="https://img.shields.io/badge/Version-2.1.0-0EA5E9?style=for-the-badge&logo=semver&logoColor=white" alt="Version"/>
   <img src="https://img.shields.io/badge/README-繁中%20%2F%20EN-blueviolet?style=for-the-badge" alt="bilingual readme"/>
   <img src="https://img.shields.io/badge/Single%20File-%E2%9C%85-success?style=for-the-badge" alt="single file"/>
+  <a href="https://github.com/web3-ai-game/oece-x-sh"><img src="https://img.shields.io/badge/Sister-oece--x.sh-7c4dff?style=for-the-badge" alt="Sister oece-x.sh"/></a>
 </p>
 
 <p>
@@ -69,13 +70,14 @@
 
 ## 線上入口
 
-`oece-x.sh` 回答「這台機器值不值」。本專案回答「這台機器守不守得住」。`oece-x.sh` 的倉庫不對外連結。
+`oece-x.sh` 回答「這台機器值不值得留」。本專案回答「這台機器守不守得住」。兩邊共用 `DO SGP1` 與 57 → 75 → 83。
 
 | 入口 | 做什麼 |
 |:-----|:-------|
+| [oece-x.sh](https://github.com/web3-ai-game/oece-x-sh) | Step 1。新機開荒體檢，初篩 57/100 後移交到這裡 |
+| **oece-x-blue.sh** | Step 2。在你自己的 Linux 上評分、加固、回滾，目標 75 / 83 |
 | [guard-demo.oece-x.com](https://guard-demo.oece-x.com) | 只讀 Web 沙盒。與本腳本 `--demo` 共用 57 / 75 / 83 |
 | [portfolio.oece-x.com](https://portfolio.oece-x.com) | 作品集 |
-| **oece-x-blue.sh** | 在你自己的 Linux 上評分、加固、回滾 |
 
 ## 快速開始
 
@@ -291,13 +293,14 @@ There is no telemetry, no proxy or circumvention feature, and no sample upload. 
 
 ## Live entry points
 
-`oece-x.sh` answers whether a box is worth keeping. This project answers whether it can hold. The `oece-x.sh` repository is not linked from here.
+`oece-x.sh` answers whether a box is worth keeping. This project answers whether it can hold. Both sides share `DO SGP1` and the ladder 57 → 75 → 83.
 
 | Entry | What it is |
 |:------|:-----------|
+| [oece-x.sh](https://github.com/web3-ai-game/oece-x-sh) | Step 1. First-hour audit. Hands off at 57/100 |
+| **oece-x-blue.sh** | Step 2. Score, harden, and roll back on your own Linux host, toward 75 / 83 |
 | [guard-demo.oece-x.com](https://guard-demo.oece-x.com) | Read-only web sandbox. Same 57 / 75 / 83 model as `--demo` |
 | [portfolio.oece-x.com](https://portfolio.oece-x.com) | Portfolio |
-| **oece-x-blue.sh** | Score, harden, and roll back on your own Linux host |
 
 ## Quick start
 
