@@ -25,7 +25,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT"/></a>
   <img src="https://img.shields.io/badge/Shell-Bash%204%2B-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash"/>
   <img src="https://img.shields.io/badge/ShellCheck-0%20warnings-brightgreen?style=for-the-badge" alt="ShellCheck"/>
-  <img src="https://img.shields.io/badge/Version-2.0.0-0EA5E9?style=for-the-badge&logo=semver&logoColor=white" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-2.1.0-0EA5E9?style=for-the-badge&logo=semver&logoColor=white" alt="Version"/>
   <img src="https://img.shields.io/badge/README-繁中%20%2F%20EN-blueviolet?style=for-the-badge" alt="bilingual readme"/>
   <img src="https://img.shields.io/badge/Single%20File-%E2%9C%85-success?style=for-the-badge" alt="single file"/>
 </p>
@@ -43,7 +43,8 @@
   <a href="https://www.youtube.com/@oece-x"><img src="https://img.shields.io/badge/YouTube-%40oece--x-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"/></a>
   <a href="https://t.me/+siuGZTKnrNI1OTY1"><img src="https://img.shields.io/badge/Telegram-Join-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/></a>
   <a href="https://oece-x.com"><img src="https://img.shields.io/badge/Web-oece--x.com-0EA5E9?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Website"/></a>
-  <a href="https://github.com/web3-ai-game/oece-x-sh"><img src="https://img.shields.io/badge/Sister-oece--x.sh-7c4dff?style=for-the-badge&logo=gnubash&logoColor=white" alt="sister"/></a>
+  <a href="https://guard-demo.oece-x.com"><img src="https://img.shields.io/badge/Live_Sandbox-guard--demo.oece--x.com-00C2FF?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Sandbox"/></a>
+  <a href="https://portfolio.oece-x.com"><img src="https://img.shields.io/badge/Portfolio-portfolio.oece--x.com-7c4dff?style=for-the-badge" alt="Portfolio"/></a>
 </p>
 
 **[繁體中文](#zh) · [English](#en)**
@@ -66,23 +67,27 @@
 
 沒有遙測，沒有代理或繞過封鎖功能，不上傳蜜罐樣本。蜜罐資料只留在本機。
 
-## 姊妹專案
+## 線上入口
 
-| 專案 | 回答的問題 | 短命令 |
-|:-----|:-----------|:-------|
-| [oece-x.sh](https://github.com/web3-ai-game/oece-x-sh) | 這台機器值不值？ | `bash <(curl -sL oece-x.com/x)` |
-| **oece-x-blue.sh** | 這台機器守不守得住？ | `bash <(curl -sL oece-x.com/b)` |
+`oece-x.sh` 回答「這台機器值不值」。本專案回答「這台機器守不守得住」。`oece-x.sh` 的倉庫不對外連結。
+
+| 入口 | 做什麼 |
+|:-----|:-------|
+| [guard-demo.oece-x.com](https://guard-demo.oece-x.com) | 只讀 Web 沙盒。與本腳本 `--demo` 共用 57 / 75 / 83 |
+| [portfolio.oece-x.com](https://portfolio.oece-x.com) | 作品集 |
+| **oece-x-blue.sh** | 在你自己的 Linux 上評分、加固、回滾 |
 
 ## 快速開始
 
 | 方式 | 命令 |
 |:-----|:-----|
-| 官網便利入口 | `bash <(curl -sL oece-x.com/b)` |
-| GitHub raw | `bash <(curl -sSL https://raw.githubusercontent.com/web3-ai-game/oece-x-blue-sh/main/oece-x-blue.sh)` |
-| 只跑評分 | `bash oece-x-blue.sh --audit` |
+| 安全落盤執行（推薦） | `curl -fsSL https://raw.githubusercontent.com/web3-ai-game/oece-x-blue-sh/main/oece-x-blue.sh -o oece-x-blue.sh && sudo bash oece-x-blue.sh` |
+| 免 Root 終端沙盒 | `bash oece-x-blue.sh --demo` |
+| 沙盒 JSON | `bash oece-x-blue.sh --demo --audit --json` |
+| 只跑評分 | `sudo bash oece-x-blue.sh --audit` |
 | 英文介面 | `bash oece-x-blue.sh --lang en` |
 | 繁體介面 | `bash oece-x-blue.sh --lang zh-Hant` |
-| 只看計畫 | `bash oece-x-blue.sh --dry-run` |
+| 只看計畫 | `sudo bash oece-x-blue.sh --dry-run` |
 
 需要 root。選單 1–3 唯讀。選單 4 不動 SSH。選單 5 起，動 SSH 或防火牆的步驟會先做前置檢查，並掛自動回滾。
 
@@ -130,6 +135,8 @@ flowchart TD
 ## 界面預覽
 
 以下是實驗室輸出的版面。位址使用 [RFC 5737](https://www.rfc-editor.org/rfc/rfc5737) 文件段，不是真實主機。
+
+終端 `bash oece-x-blue.sh --demo` 與線上只讀沙盒 [guard-demo.oece-x.com](https://guard-demo.oece-x.com) 共用同一套 32 項、6 組評分表（57 → 75 → 83）與 `DO SGP1`（DigitalOcean · Singapore）樣例。六組口徑是 SSH 6、FW 5、IPS 6、TRAP 4、KERN 6、AUD 5。
 
 ```text
 ╔══════════════════════════════════════════════════════════════╗
@@ -282,23 +289,27 @@ Menus 1–3 are read-only. Menu 6 is a sequence you can cancel at each step. Men
 
 There is no telemetry, no proxy or circumvention feature, and no sample upload. Honeypot captures stay on the machine.
 
-## Sister project
+## Live entry points
 
-| Project | Question | Shortcut |
-|:--------|:---------|:---------|
-| [oece-x.sh](https://github.com/web3-ai-game/oece-x-sh) | Is this box worth keeping? | `bash <(curl -sL oece-x.com/x)` |
-| **oece-x-blue.sh** | Can this box hold? | `bash <(curl -sL oece-x.com/b)` |
+`oece-x.sh` answers whether a box is worth keeping. This project answers whether it can hold. The `oece-x.sh` repository is not linked from here.
+
+| Entry | What it is |
+|:------|:-----------|
+| [guard-demo.oece-x.com](https://guard-demo.oece-x.com) | Read-only web sandbox. Same 57 / 75 / 83 model as `--demo` |
+| [portfolio.oece-x.com](https://portfolio.oece-x.com) | Portfolio |
+| **oece-x-blue.sh** | Score, harden, and roll back on your own Linux host |
 
 ## Quick start
 
 | Method | Command |
 |:-------|:--------|
-| Convenience entry | `bash <(curl -sL oece-x.com/b)` |
-| GitHub raw | `bash <(curl -sSL https://raw.githubusercontent.com/web3-ai-game/oece-x-blue-sh/main/oece-x-blue.sh)` |
-| Score only | `bash oece-x-blue.sh --audit` |
+| Verified local run | `curl -fsSL https://raw.githubusercontent.com/web3-ai-game/oece-x-blue-sh/main/oece-x-blue.sh -o oece-x-blue.sh && sudo bash oece-x-blue.sh` |
+| Rootless TUI demo | `bash oece-x-blue.sh --demo` |
+| Sandbox JSON | `bash oece-x-blue.sh --demo --audit --json` |
+| Score only | `sudo bash oece-x-blue.sh --audit` |
 | English UI | `bash oece-x-blue.sh --lang en` |
 | Traditional Chinese UI | `bash oece-x-blue.sh --lang zh-Hant` |
-| Dry-run | `bash oece-x-blue.sh --dry-run` |
+| Dry-run | `sudo bash oece-x-blue.sh --dry-run` |
 
 Root is required. Menus 1–3 are read-only. Menu 4 does not touch SSH. From menu 5 on, SSH and firewall changes run a preflight check and arm an auto-rollback timer.
 
@@ -346,6 +357,8 @@ flowchart TD
 ## Preview
 
 Lab layout only. Addresses are documentation ranges from [RFC 5737](https://www.rfc-editor.org/rfc/rfc5737), not a live host.
+
+`bash oece-x-blue.sh --demo` and the read-only sandbox at [guard-demo.oece-x.com](https://guard-demo.oece-x.com) share one 32-check, 6-group table (57 → 75 → 83) and the `DO SGP1` (DigitalOcean · Singapore) sample. The groups are SSH 6, FW 5, IPS 6, TRAP 4, KERN 6, and AUD 5.
 
 ```text
 ╔══════════════════════════════════════════════════════════════╗

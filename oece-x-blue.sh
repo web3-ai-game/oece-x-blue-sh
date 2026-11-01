@@ -13,7 +13,7 @@
 #  蜜罐採集的資料僅存本地，不外傳、不上報、不遙測。
 #=======================================================================
 
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="2.1.0"
 # shellcheck disable=SC2034  # 由「檢查更新」模塊使用
 SCRIPT_RAW_URL="https://raw.githubusercontent.com/web3-ai-game/oece-x-blue-sh/main/oece-x-blue.sh"
 ISSUE_URL="https://github.com/web3-ai-game/oece-x-blue-sh/issues"
@@ -128,7 +128,10 @@ APT_UPDATED=0
 AUTH_LOG=""          # 偵測到的 auth 日誌路徑（可能為空 → 走 journalctl）
 UI_LANG="zh-Hant"
 DRY_RUN=0
+AUDIT_JSON=0
+DEMO_SCORE=57
 OECE_LANG_FILE="/etc/oece-x/lang"
+BLUE_INSTALL="/usr/local/sbin/oece-x-blue"
 
 #-----------------------------------------------------------------------
 # 語言
@@ -1401,12 +1404,81 @@ run_all_checks() {
     checks_integrity
 }
 
+json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/ }"
+    s="${s//$'\r'/ }"
+    printf '%s' "$s"
+}
+
+# 沙盒與真機 JSON 共用的六組鍵。真機檢查組對到這六個桶。
+group_bucket() {
+    case "$1" in
+        身份與存取|identity|ssh) printf 'ssh' ;;
+        暴露面|exposure|fw) printf 'fw' ;;
+        偵測與響應|detection|ips) printf 'ips' ;;
+        誘捕|trap) printf 'trap' ;;
+        內核與掛載|kernel|kern) printf 'kern' ;;
+        完整性|integrity|aud) printf 'aud' ;;
+        *) printf '' ;;
+    esac
+}
+
+emit_audit_json() {
+    local host="$1" region="$2" score="$3" passed="$4"
+    local ssh_p="$5" ssh_t="$6" fw_p="$7" fw_t="$8"
+    local ips_p="$9" ips_t="${10}" trap_p="${11}" trap_t="${12}"
+    local kern_p="${13}" kern_t="${14}" aud_p="${15}" aud_t="${16}"
+    printf '{"host":"%s","region":"%s","score":%s,"passed_checks":%s,"total_checks":32,"groups":{"ssh":{"passed":%s,"total":%s},"fw":{"passed":%s,"total":%s},"ips":{"passed":%s,"total":%s},"trap":{"passed":%s,"total":%s},"kern":{"passed":%s,"total":%s},"aud":{"passed":%s,"total":%s}}}\n' \
+        "$(json_escape "$host")" "$(json_escape "$region")" \
+        "$score" "$passed" \
+        "$ssh_p" "$ssh_t" "$fw_p" "$fw_t" "$ips_p" "$ips_t" \
+        "$trap_p" "$trap_t" "$kern_p" "$kern_t" "$aud_p" "$aud_t"
+}
+
+emit_live_audit_json() {
+    local bucket status title host region
+    local ssh_p=0 fw_p=0 ips_p=0 trap_p=0 kern_p=0 aud_p=0
+    local ssh_t=0 fw_t=0 ips_t=0 trap_t=0 kern_t=0 aud_t=0
+    local passed=0 row
+    for row in "${SCORE_ROWS[@]}"; do
+        IFS='|' read -r _ status title _ _ <<< "$row"
+        bucket="$(group_bucket "${row%%|*}")"
+        case "$title" in
+            *蜜罐*|*焦油*|*endlessh*|*honeypot*) bucket="trap" ;;
+        esac
+        [ -n "$bucket" ] || continue
+        case "$bucket" in
+            ssh)  ssh_t=$(( ssh_t + 1 ));  [ "$status" = "PASS" ] && ssh_p=$(( ssh_p + 1 )) ;;
+            fw)   fw_t=$(( fw_t + 1 ));    [ "$status" = "PASS" ] && fw_p=$(( fw_p + 1 )) ;;
+            ips)  ips_t=$(( ips_t + 1 ));  [ "$status" = "PASS" ] && ips_p=$(( ips_p + 1 )) ;;
+            trap) trap_t=$(( trap_t + 1 )); [ "$status" = "PASS" ] && trap_p=$(( trap_p + 1 )) ;;
+            kern) kern_t=$(( kern_t + 1 )); [ "$status" = "PASS" ] && kern_p=$(( kern_p + 1 )) ;;
+            aud)  aud_t=$(( aud_t + 1 ));  [ "$status" = "PASS" ] && aud_p=$(( aud_p + 1 )) ;;
+        esac
+        [ "$status" = "PASS" ] && passed=$(( passed + 1 ))
+    done
+    host="$(hostname 2>/dev/null || printf 'localhost')"
+    region="${OS_PRETTY:-linux}"
+    emit_audit_json "$host" "$region" "$(score_pct)" "$passed" \
+        "$ssh_p" "${ssh_t:-0}" "$fw_p" "${fw_t:-0}" "$ips_p" "${ips_t:-0}" \
+        "$trap_p" "${trap_t:-0}" "$kern_p" "${kern_t:-0}" "$aud_p" "${aud_t:-0}"
+}
+
 module_audit() {
-    section "加固評分體檢"
-    info "唯讀掃描，不改動任何配置。SUID 全盤掃描約需 5-20 秒…"
-    printf '\n'
+    if [ "$AUDIT_JSON" -eq 0 ]; then
+        section "加固評分體檢"
+        info "唯讀掃描，不改動任何配置。SUID 全盤掃描約需 5-20 秒…"
+        printf '\n'
+    fi
 
     run_all_checks
+    if [ "$AUDIT_JSON" -eq 1 ]; then
+        emit_live_audit_json
+        return 0
+    fi
 
     local pct col grade lastgroup="" row group status title detail fix
     pct="$(score_pct)"
@@ -1842,6 +1914,54 @@ esac
 rm -f /var/lib/oece-x/pending
 RESTORE_EOF
     chmod 700 "$BLUE_RESTORE_BIN"
+}
+
+# $0 在 bash <(curl) / curl | bash 下不是磁碟檔。回滾不能指回它。
+is_ephemeral_script_path() {
+    local p="${1:-$0}"
+    case "$p" in
+        bash|-bash|sh|-sh|/dev/fd/*|/dev/stdin|/proc/self/fd/*|/proc/*/fd/*) return 0 ;;
+    esac
+    [ -f "$p" ] || return 0
+    case "$p" in
+        /*|./*|../*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+persist_running_script() {
+    local src="${1:-$0}" dest="$BLUE_INSTALL" body
+    if ! is_ephemeral_script_path "$src"; then
+        printf '%s' "$src"
+        return 0
+    fi
+    if [ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]; then
+        err "目前是管道執行，回滾找不到腳本檔。請先存到磁碟再跑選單 5 以後的項目。"
+        err "curl -fsSL ${SCRIPT_RAW_URL} -o oece-x-blue.sh && sudo bash oece-x-blue.sh"
+        return 1
+    fi
+    mkdir -p /usr/local/sbin 2>/dev/null || {
+        err "無法建立 /usr/local/sbin，已拒絕掛回滾。"
+        return 1
+    }
+    if [ -f "$src" ]; then
+        cp -f "$src" "$dest" || return 1
+    else
+        body="$(cat 2>/dev/null || true)"
+        if [ -z "$body" ]; then
+            err "讀不到正在執行的腳本內容，已拒絕掛回滾。"
+            return 1
+        fi
+        printf '%s\n' "$body" > "$dest" || return 1
+    fi
+    chmod 755 "$dest" || return 1
+    ok "已落盤：${dest}。回滾將指向這個檔，不指向管道。"
+    printf '%s' "$dest"
+}
+
+require_durable_script() {
+    is_ephemeral_script_path || return 0
+    persist_running_script >/dev/null
 }
 
 # 排定 N 分鐘後自動還原。三級降級：systemd-run → at → nohup
@@ -3831,6 +3951,124 @@ module_cherry_pick() {
 }
 
 #=======================================================================
+# --demo · 免 root 只讀沙盒
+#   與 guard-demo.oece-x.com 共用 DO SGP1 與 57/75/83 三檔。
+#   不寫磁碟，不讀本機 sshd / 防火牆。
+#=======================================================================
+demo_baseline() {
+    case "$1" in
+        57) printf '57 18 3 6 3 5 3 6 1 4 4 6 4 5' ;;
+        75) printf '75 24 5 6 5 5 4 6 2 4 4 6 4 5' ;;
+        83) printf '83 27 5 6 5 5 5 6 4 4 4 6 4 5' ;;
+        *) return 1 ;;
+    esac
+}
+
+demo_emit_json() {
+    local row score passed
+    row="$(demo_baseline "$DEMO_SCORE")" || return 1
+    # shellcheck disable=SC2086
+    set -- $row
+    score="$1"; passed="$2"
+    emit_audit_json "DO SGP1" "DigitalOcean · Singapore" "$score" "$passed" \
+        "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "${12}" "${13}" "${14}"
+}
+
+demo_print_panel() {
+    local row score passed
+    row="$(demo_baseline "$DEMO_SCORE")" || return 1
+    # shellcheck disable=SC2086
+    set -- $row
+    score="$1"; passed="$2"
+    printf '\n'
+    printf '%sDO SGP1%s  DigitalOcean · Singapore\n' "$C_BOLD" "$C_RESET"
+    printf '%s只讀沙盒%s  對齊 https://guard-demo.oece-x.com  不寫本機\n' "$C_DIM" "$C_RESET"
+    divider
+    printf ' 分數 %s%s%s/100   通過 %s/32\n' "$C_BOLD" "$score" "$C_RESET" "$passed"
+    printf ' SSH %s/%s   FW %s/%s   IPS %s/%s\n' "$3" "$4" "$5" "$6" "$7" "$8"
+    printf ' TRAP %s/%s  KERN %s/%s  AUD %s/%s\n' "$9" "${10}" "${11}" "${12}" "${13}" "${14}"
+    divider
+    printf ' 威脅樣例（RFC 5737，不是真實主機）\n'
+    printf '  203.0.113.18    ssh root     honeypot hit\n'
+    printf '  198.51.100.41   ssh root     honeypot hit\n'
+    printf '  192.0.2.73      nginx        denied\n'
+    printf '  endlessh tarpit  port 22 held  00:14:22\n'
+    divider
+}
+
+demo_rollback_drill() {
+    local left=10 reply=""
+    warn "模擬掛載 10 秒自動回滾。不會建立定時器，也不會改系統。"
+    printf '輸入 yes 確認連通性並鎖定 83 分。逾時則模擬還原到 57。\n'
+    while [ "$left" -gt 0 ]; do
+        printf '\r  回滾倒數 %2ss  輸入 yes: ' "$left"
+        if read -r -t 1 reply; then
+            break
+        fi
+        left=$(( left - 1 ))
+        reply=""
+    done
+    printf '\n'
+    case "$reply" in
+        yes|YES)
+            DEMO_SCORE=83
+            ok "已取消模擬回滾，基線鎖定在 83。"
+            ;;
+        *)
+            DEMO_SCORE=57
+            warn "未確認。模擬還原完成，基線回到 57。"
+            ;;
+    esac
+}
+
+module_demo() {
+    local choice=""
+    demo_baseline "$DEMO_SCORE" >/dev/null || { err "沙盒分數只接受 57、75、83。"; return 1; }
+    if [ "$AUDIT_JSON" -eq 1 ]; then
+        demo_emit_json
+        return 0
+    fi
+    while true; do
+        demo_print_panel
+        printf ' 1) 基線 57   2) 基線 75   3) 基線 83\n'
+        printf ' 4) 防鎖門演練（倒數 → yes → 鎖定 83）\n'
+        printf ' 5) 印出 JSON\n'
+        printf ' 0) 離開沙盒\n'
+        printf '請選擇: '
+        if ! read -r choice; then
+            printf '\n'
+            break
+        fi
+        case "$choice" in
+            1) DEMO_SCORE=57 ;;
+            2) DEMO_SCORE=75 ;;
+            3) DEMO_SCORE=83 ;;
+            4) demo_rollback_drill ;;
+            5) demo_emit_json ;;
+            0) break ;;
+            *) warn "無效選項：${choice}" ;;
+        esac
+    done
+}
+
+offer_demo_instead_of_root() {
+    local reply=""
+    warn "這台環境沒有 root，或是 macOS。加固選單需要 Linux root。"
+    info "可以進入 --demo：DO SGP1 只讀沙盒，57 / 75 / 83，不改任何檔案。"
+    info "線上同一套模型：https://guard-demo.oece-x.com"
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        info "非互動環境不自動進入沙盒。請執行：bash oece-x-blue.sh --demo"
+        return 0
+    fi
+    printf '進入只讀沙盒？[Y/n] '
+    read -r reply || reply=""
+    case "$reply" in
+        n|N|no|NO) info "已取消。"; return 0 ;;
+        *) module_demo ;;
+    esac
+}
+
+#=======================================================================
 # 模塊 21 · 檢查更新
 #   只比對 SCRIPT_VERSION。不自動覆蓋本機腳本：官網 /b 與 GitHub raw
 #   都還沒有發布 SHA256，自動替換會變成未校驗的 curl|bash。
@@ -3929,21 +4167,21 @@ main_menu() {
             2)  module_audit            || true; pause ;;
             3)  module_lynis            || true; pause ;;
             4)  module_harden_basic     || true; pause ;;
-            5)  module_harden_standard  || true; pause ;;
-            6)  module_harden_hardcore  || true; pause ;;
-            7)  module_cherry_pick      || true; pause ;;
-            8)  module_crowdsec         || true; pause ;;
-            9)  module_fail2ban         || true; pause ;;
-            10) module_honeypot         || true; pause ;;
-            11) module_endlessh         || true; pause ;;
-            12) module_firewall         || true; pause ;;
+            5)  require_durable_script && module_harden_standard || true; pause ;;
+            6)  require_durable_script && module_harden_hardcore || true; pause ;;
+            7)  require_durable_script && module_cherry_pick || true; pause ;;
+            8)  require_durable_script && module_crowdsec || true; pause ;;
+            9)  require_durable_script && module_fail2ban || true; pause ;;
+            10) require_durable_script && module_honeypot || true; pause ;;
+            11) require_durable_script && module_endlessh || true; pause ;;
+            12) require_durable_script && module_firewall || true; pause ;;
             13) module_alerts_config    || true; pause ;;
-            14) module_login_alert      || true; pause ;;
+            14) require_durable_script && module_login_alert || true; pause ;;
             15) module_daily_report     || true; pause ;;
             16) module_ioc              || true; pause ;;
             17) module_forensics        || true; pause ;;
             18) module_ban              || true; pause ;;
-            19) module_lockdown         || true; pause ;;
+            19) require_durable_script && module_lockdown || true; pause ;;
             20) module_rollback         || true; pause ;;
             21) module_self_update      || true; pause ;;
             0)  info "$(t menu.exit)"; break ;;
@@ -3960,6 +4198,9 @@ oece-x-blue.sh v${SCRIPT_VERSION} — VPS blue-team panel / 藍隊加固面板
   bash oece-x-blue.sh                 互動選單 / interactive menu
   bash oece-x-blue.sh --panel         面板 / live panel
   bash oece-x-blue.sh --audit         評分 / score (cron-safe)
+  bash oece-x-blue.sh --audit --json  機器可讀 JSON / machine-readable JSON
+  bash oece-x-blue.sh --demo          免 root 沙盒 / rootless DO SGP1 sandbox
+  bash oece-x-blue.sh --demo --audit --json
   bash oece-x-blue.sh --confirm       確認保留 / cancel rollback timer
   bash oece-x-blue.sh --rollback      立即還原 / restore now
   bash oece-x-blue.sh --lang zh-Hant  繁體中文
@@ -4003,8 +4244,13 @@ apply_lang_arg() {
     export OECE_LANG
 }
 
+can_run_live_menu() {
+    [ "$(uname -s 2>/dev/null || echo unknown)" = "Linux" ] || return 1
+    [ "$(id -u 2>/dev/null || echo 1)" -eq 0 ]
+}
+
 main() {
-    local interactive=1
+    local interactive=1 mode="" want_demo=0
     while [ $# -gt 0 ]; do
         case "$1" in
             --version|-v) printf 'oece-x-blue.sh v%s\n' "$SCRIPT_VERSION"; exit 0 ;;
@@ -4018,7 +4264,18 @@ main() {
                 apply_lang_arg "${1#--lang=}"
                 ;;
             --dry-run) DRY_RUN=1 ;;
-            --audit|--panel|--confirm|--rollback) interactive=0; set -- "$1"; break ;;
+            --json) AUDIT_JSON=1 ;;
+            --demo) want_demo=1 ;;
+            --score)
+                shift
+                [ $# -gt 0 ] || { usage; exit 1; }
+                DEMO_SCORE="$1"
+                ;;
+            --score=*) DEMO_SCORE="${1#--score=}" ;;
+            --audit) mode="audit"; interactive=0 ;;
+            --panel) mode="panel"; interactive=0 ;;
+            --confirm) mode="confirm"; interactive=0 ;;
+            --rollback) mode="rollback"; interactive=0 ;;
             "") break ;;
             *) usage; exit 1 ;;
         esac
@@ -4026,14 +4283,33 @@ main() {
     done
     UI_LANG="$(resolve_lang)"
 
-    case "${1:-}" in
-        --audit)    bootstrap; module_audit; exit 0 ;;
-        --panel)    bootstrap; module_panel; exit 0 ;;
-        --confirm)  bootstrap; blue_confirm; exit 0 ;;
-        --rollback) bootstrap; blue_rollback_now; exit 0 ;;
-        "")         : ;;
-        *)          usage; exit 1 ;;
+    if [ "$want_demo" -eq 1 ]; then
+        if [ "$mode" = "audit" ]; then
+            demo_baseline "$DEMO_SCORE" >/dev/null || { err "沙盒分數只接受 57、75、83。"; exit 1; }
+            if [ "$AUDIT_JSON" -eq 1 ]; then
+                demo_emit_json
+            else
+                demo_print_panel
+            fi
+            exit 0
+        fi
+        module_demo
+        exit $?
+    fi
+
+    case "$mode" in
+        audit)    bootstrap; module_audit; exit 0 ;;
+        panel)    bootstrap; module_panel; exit 0 ;;
+        confirm)  bootstrap; blue_confirm; exit 0 ;;
+        rollback) bootstrap; blue_rollback_now; exit 0 ;;
+        "")       : ;;
+        *)        usage; exit 1 ;;
     esac
+
+    if ! can_run_live_menu; then
+        offer_demo_instead_of_root
+        exit 0
+    fi
 
     bootstrap
     if [ "$interactive" -eq 1 ]; then

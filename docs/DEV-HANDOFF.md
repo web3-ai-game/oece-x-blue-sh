@@ -1,6 +1,6 @@
 # oece-x-blue.sh 開發回執 / Dev handoff
 
-當前版本：**v2.0.0**。單檔 `oece-x-blue.sh`。UI 為繁體中文 / English。
+當前版本：**v2.1.0**。單檔 `oece-x-blue.sh`。UI 為繁體中文 / English。
 
 公開倉庫不記錄真實帳號名、雲商資源 ID、公網 IP、部署路徑或私人信箱。示例帳號用 `deploy`。示例 IP 用 RFC 5737（`203.0.113.0/24`、`198.51.100.0/24`、`192.0.2.0/24`）。
 
@@ -23,6 +23,7 @@ shellcheck -S warning oece-x-blue.sh
 | P3 | CrowdSec / fail2ban / 蜜罐 / endlessh / 防火牆 | 完成 |
 | P4 | 告警、日報、IOC、取證、封禁、緊急鎖定 | 完成 |
 | P5 | 選單 6 / 7 / 21、雙語、dry-run、開源規格 | v2.0.0 完成 |
+| P6 | `--demo`、`--audit --json`、管道執行落盤護欄 | v2.1.0 完成 |
 
 ## 語言
 
@@ -37,6 +38,14 @@ score=<pct> got=<n> max=<n>
 ```
 
 日報只解析這一行。
+
+## 2.1.0 行為變更
+
+- `--demo` 不需要 root，不寫磁碟。主機固定 `DO SGP1`。基線 57 / 75 / 83，六組口徑與公開規格一致。
+- 非 root 或 macOS 且無參數時，提示進入 `--demo`，不以缺 root 當錯誤退出。
+- `--audit --json` 與 `--demo --audit --json` 把 JSON 打到 stdout。
+- `bash <(curl …)` 進入選單 5 以後會先把腳本落到 `/usr/local/sbin/oece-x-blue`。落不了盤就拒絕掛回滾。
+- 公開 README 不再連結私有的 `oece-x.sh` 倉庫。線上對照是 `https://guard-demo.oece-x.com`。
 
 ## 2.0.0 行為變更
 
